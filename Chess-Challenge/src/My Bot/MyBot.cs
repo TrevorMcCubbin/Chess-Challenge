@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Linq;
+using System.Threading.Tasks.Sources;
 using ChessChallenge.API;
 
 public class MyBot : IChessBot
@@ -24,20 +25,11 @@ public class MyBot : IChessBot
                 return move;
             }
 
-            if (MoveIsFork(board, move) && MoveIsSafe(board, move))
+            var moveScore = MoveDepthMaximumValue(board, move);
+
+            if (moveScore > highestValueCapture)
             {
-                moveToMake = move;
-            }
-            else if (CapturedPieceIsOfHigherValue(highestValueCapture, board, move))
-            {
-                // for this iteration only take unguarded pieces
-                if (!MoveIsSafe(board, move))
-                {
-                    continue;
-                }
-                highestValueCapture = PIECE_VALUES[
-                    (int)board.GetPiece(move.TargetSquare).PieceType
-                ];
+                highestValueCapture = moveScore;
                 moveToMake = move;
             }
         }
@@ -50,6 +42,29 @@ public class MyBot : IChessBot
 
         var capturedPieceValue = PIECE_VALUES[(int)capturedPiece.PieceType];
         return capturedPieceValue > highestValueCapture;
+    }
+
+    private int MoveDepthMaximumValue(Board board, Move move, int index = 0, int kills = 0, int losses = 0)
+    {
+        if (index == MAXIMUM_DEPTH)
+        {
+            return kills - losses;
+        }
+
+        var totalScore = 0;
+
+        var capturedPiece = board.GetPiece(move.TargetSquare);
+        kills += PIECE_VALUES[(int)capturedPiece.PieceType];
+        losses += (MoveIsSafe(board, move) ? 0 : (int)move.MovePieceType);
+
+        board.MakeMove(move);
+        foreach (var newMove in board.GetLegalMoves())
+        {
+            totalScore += MoveDepthMaximumValue(board, newMove, index + 1, kills, losses);
+        }
+        board.UndoMove(move);
+        return totalScore;
+
     }
 
     private bool MoveIsCheckmate(Board board, Move move)
